@@ -70,6 +70,7 @@ interface InvoiceShortcutsVm {
 		};
 	};
 	items?: Array<Record<string, unknown>>;
+	pos_profile?: Record<string, unknown>;
 	invoice_doc?: {
 		rounded_total?: number;
 		grand_total?: number;
@@ -112,7 +113,12 @@ interface InvoiceShortcutsVm {
 	) => Promise<number | null>;
 	getShortcutPaymentAmount: () => number;
 	focusItemTableField: (_field: ShortcutField) => void;
+	submitCreditSale: () => Promise<void>;
 }
+
+const isQuickCreditSaleEnabled = (profile?: Record<string, unknown>) =>
+	Boolean(profile?.posa_allow_credit_sale) &&
+	Boolean(profile?.posa_credit_sale_quick_submit);
 
 const invoiceShortcuts: Record<string, unknown> & ThisType<InvoiceShortcutsVm> =
 	{
@@ -321,6 +327,18 @@ const invoiceShortcuts: Record<string, unknown> & ThisType<InvoiceShortcutsVm> =
 				return;
 			}
 
+			if (isLetter(event, "c")) {
+				if (this.paymentVisible) {
+					return;
+				}
+				consumeEvent(event);
+				if (event.repeat || this.shortcutSubmitInFlight) {
+					return;
+				}
+				await this.submitCreditSale();
+				return;
+			}
+
 			const isPaymentShortcut = isLetter(event, "x");
 			const isPrintShortcut = isLetter(event, "p");
 			if (isPaymentShortcut || isPrintShortcut) {
@@ -354,6 +372,46 @@ const invoiceShortcuts: Record<string, unknown> & ThisType<InvoiceShortcutsVm> =
 				} finally {
 					this.shortcutSubmitInFlight = false;
 				}
+			}
+		},
+
+		// Submits and prints the invoice unpaid, skipping the payment screen and the
+		// amount confirmation dialog. The balance is settled later with a Payment Entry.
+		async submitCreditSale() {
+			if (this.paymentVisible || this.shortcutSubmitInFlight) {
+				return;
+			}
+
+			if (!isQuickCreditSaleEnabled(this.pos_profile)) {
+				this.toastStore.show({
+					title: __("Quick Credit Sale is not enabled in POS Profile"),
+					color: "error",
+				});
+				return;
+			}
+
+			const doc = this.get_invoice_doc?.() || this.invoice_doc;
+			if (doc?.is_return) {
+				this.toastStore.show({
+					title: __("Credit Sale is not available for returns"),
+					color: "error",
+				});
+				return;
+			}
+
+			this.shortcutSubmitInFlight = true;
+			try {
+				await this.flushBackgroundUpdates?.();
+				this.triggerBackgroundFlush?.flush?.();
+				this.schedulePricingRuleApplication?.flush?.();
+				showCompactPanel(this.eventBus, "selector");
+				await this.show_payment?.();
+				this.eventBus.emit("queue_submit_payment_shortcut", {
+					print: true,
+					creditSale: true,
+				});
+			} finally {
+				this.shortcutSubmitInFlight = false;
 			}
 		},
 

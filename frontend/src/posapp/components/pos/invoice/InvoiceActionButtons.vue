@@ -113,19 +113,35 @@
 				{{ __("Customer Screen") }}
 			</v-btn>
 		</v-col>
+		<!-- In quick credit sale mode the primary action submits straight away, so
+		     taking payment now moves to a secondary button instead of being the default. -->
+		<v-col cols="12" v-if="quickCreditSaleMode">
+			<v-btn
+				block
+				color="teal-darken-2"
+				theme="dark"
+				prepend-icon="mdi-credit-card"
+				@click="$emit('show-payment')"
+				class="summary-btn"
+				data-pos-keyboard-target="invoice-action"
+				:loading="paymentLoading"
+			>
+				{{ __("Collect Payment") }}
+			</v-btn>
+		</v-col>
 		<v-col cols="12">
 			<v-btn
 				block
 				color="success"
 				theme="dark"
 				size="large"
-				prepend-icon="mdi-credit-card"
-				@click="$emit('show-payment')"
+				:prepend-icon="quickCreditSaleMode ? 'mdi-printer-check' : 'mdi-credit-card'"
+				@click="$emit(quickCreditSaleMode ? 'credit-sale-submit' : 'show-payment')"
 				class="summary-btn pay-btn"
 				data-pos-keyboard-target="pay"
-				:loading="paymentLoading"
+				:loading="quickCreditSaleMode ? creditSaleLoading : paymentLoading"
 			>
-				{{ __("PAY") }}
+				{{ quickCreditSaleMode ? __("SUBMIT & PRINT") : __("PAY") }}
 			</v-btn>
 		</v-col>
 	</v-row>
@@ -150,6 +166,8 @@ const props = defineProps({
 	printLoading: Boolean,
 	paymentLoading: Boolean,
 	customerDisplayLoading: Boolean,
+	creditSaleLoading: Boolean,
+	isReturn: Boolean,
 });
 
 defineEmits([
@@ -162,11 +180,18 @@ defineEmits([
 	"print-draft",
 	"show-payment",
 	"open-customer-display",
+	"credit-sale-submit",
 ]);
 
 const __ = window.__;
 const showCustomerDisplayButton = computed(() =>
 	parseBooleanSetting(props.pos_profile?.posa_enable_customer_display),
+);
+const quickCreditSaleMode = computed(
+	() =>
+		!props.isReturn &&
+		parseBooleanSetting(props.pos_profile?.posa_allow_credit_sale) &&
+		parseBooleanSetting(props.pos_profile?.posa_credit_sale_quick_submit),
 );
 </script>
 

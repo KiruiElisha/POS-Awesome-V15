@@ -29,6 +29,7 @@ const createVm = () => ({
 	focusItemTableField: vi.fn(),
 	getShortcutPaymentAmount: vi.fn(() => 125),
 	confirmPaymentSubmission: vi.fn(async () => 150),
+	submitCreditSale: (invoiceShortcuts as any).submitCreditSale,
 });
 
 describe("invoiceShortcuts", () => {
@@ -69,6 +70,70 @@ describe("invoiceShortcuts", () => {
 				amount: 150,
 			},
 		);
+	});
+
+	it("queues Alt+C as a credit sale that prints without prompting for an amount", async () => {
+		const vm = {
+			...createVm(),
+			pos_profile: {
+				posa_allow_credit_sale: 1,
+				posa_credit_sale_quick_submit: 1,
+			},
+			show_payment: vi.fn(async () => {}),
+		};
+		const event = createAltEvent("c", "KeyC");
+
+		await (invoiceShortcuts as any).handleInvoiceShortcut.call(vm, event);
+
+		expect(vm.confirmPaymentSubmission).not.toHaveBeenCalled();
+		expect(vm.show_payment).toHaveBeenCalledTimes(1);
+		expect(vm.eventBus.emit).toHaveBeenCalledWith(
+			"queue_submit_payment_shortcut",
+			{
+				print: true,
+				creditSale: true,
+			},
+		);
+		expect(event.defaultPrevented).toBe(true);
+	});
+
+	it("refuses Alt+C when quick credit sale is not enabled in the POS Profile", async () => {
+		const vm = {
+			...createVm(),
+			pos_profile: {
+				posa_allow_credit_sale: 1,
+				posa_credit_sale_quick_submit: 0,
+			},
+			show_payment: vi.fn(async () => {}),
+		};
+		const event = createAltEvent("c", "KeyC");
+
+		await (invoiceShortcuts as any).handleInvoiceShortcut.call(vm, event);
+
+		expect(vm.show_payment).not.toHaveBeenCalled();
+		expect(vm.eventBus.emit).not.toHaveBeenCalledWith(
+			"queue_submit_payment_shortcut",
+			expect.anything(),
+		);
+		expect(vm.toastStore.show).toHaveBeenCalledTimes(1);
+	});
+
+	it("refuses Alt+C on a return invoice", async () => {
+		const vm = {
+			...createVm(),
+			pos_profile: {
+				posa_allow_credit_sale: 1,
+				posa_credit_sale_quick_submit: 1,
+			},
+			invoice_doc: { is_return: 1 },
+			show_payment: vi.fn(async () => {}),
+		};
+		const event = createAltEvent("c", "KeyC");
+
+		await (invoiceShortcuts as any).handleInvoiceShortcut.call(vm, event);
+
+		expect(vm.show_payment).not.toHaveBeenCalled();
+		expect(vm.toastStore.show).toHaveBeenCalledTimes(1);
 	});
 
 	it("uses F4 to open the employee switch flow", async () => {

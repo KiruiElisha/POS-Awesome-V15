@@ -715,6 +715,11 @@ const creditSaleAllowed = computed(() =>
 	parseBooleanSetting(pos_profile.value?.posa_allow_credit_sale),
 );
 
+const defaultCreditSaleDays = computed(() => {
+	const days = parseInt(pos_profile.value?.posa_default_credit_sale_days, 10);
+	return Number.isFinite(days) && days >= 0 ? days : null;
+});
+
 const giftCardAppliedAmount = computed(() =>
 	(Array.isArray(giftCardRedemptions.value) ? giftCardRedemptions.value : []).reduce(
 		(sum, row) => sum + flt(row?.amount || 0, currency_precision.value),
@@ -1277,7 +1282,7 @@ const restorePaymentLinesAfterFailedSubmit = () => {
 	is_credit_sale.value = false;
 };
 
-const enableShortcutCreditSale = () => {
+const enableShortcutCreditSale = ({ applyDefaultDueDate = false } = {}) => {
 	if (invoice_doc.value?.is_return) {
 		return false;
 	}
@@ -1293,6 +1298,11 @@ const enableShortcutCreditSale = () => {
 
 	clear_all_amounts();
 	is_credit_sale.value = true;
+	// Quick credit sales never open the due-date panel, so seed the due date from
+	// the profile default instead of leaving it at the invoice's posting date.
+	if (applyDefaultDueDate && defaultCreditSaleDays.value !== null) {
+		applyDuePreset(defaultCreditSaleDays.value);
+	}
 	return true;
 };
 
@@ -1737,13 +1747,22 @@ const handlePaymentShortcut = (event) => {
 	}
 };
 
-const handleSubmitPaymentShortcut = ({ print = false, amount = null } = {}) => {
+const handleSubmitPaymentShortcut = ({ print = false, amount = null, creditSale = false } = {}) => {
 	if (!paymentVisible.value || submissionInFlight.value || loading.value) return;
 	const submitShortcut = () => {
 		nextTick(() => {
 			submit(null, false, print);
 		});
 	};
+
+	// Quick credit sale: submit the whole invoice unpaid, no amount prompt.
+	if (creditSale) {
+		if (!enableShortcutCreditSale({ applyDefaultDueDate: true })) {
+			return;
+		}
+		submitShortcut();
+		return;
+	}
 
 	if (amount !== null) {
 		const shortcutAmount = Number(amount);

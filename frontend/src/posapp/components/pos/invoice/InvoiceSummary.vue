@@ -100,6 +100,9 @@
 					:printLoading="printLoading"
 					:paymentLoading="paymentLoading"
 					:customerDisplayLoading="customerDisplayLoading"
+					:creditSaleLoading="creditSaleLoading"
+					:isReturn="is_return"
+					@credit-sale-submit="handleCreditSaleSubmit"
 					@save-and-clear="handleSaveAndClear"
 					@load-drafts="handleLoadDrafts"
 					@select-order="handleSelectOrder"
@@ -224,6 +227,7 @@ const props = defineProps({
 	discount_percentage_offer_name: [String, Number],
 	isNumber: Function,
 	return_discount_meta: Object,
+	is_return: Boolean,
 });
 
 const emit = defineEmits([
@@ -240,6 +244,7 @@ const emit = defineEmits([
 	"show-payment",
 	"open-customer-display",
 	"resume-parked-order",
+	"credit-sale-submit",
 ]);
 
 const saveLoading = ref(false);
@@ -251,6 +256,7 @@ const returnsLoading = ref(false);
 const printLoading = ref(false);
 const paymentLoading = ref(false);
 const customerDisplayLoading = ref(false);
+const creditSaleLoading = ref(false);
 const isEditingAdditionalDiscount = ref(false);
 const isEditingAdditionalDiscountPercentage = ref(false);
 const additionalDiscountField = ref(null);
@@ -517,6 +523,15 @@ async function handleShowPayment() {
 		await emit("show-payment");
 	} finally {
 		paymentLoading.value = false;
+	}
+}
+
+async function handleCreditSaleSubmit() {
+	creditSaleLoading.value = true;
+	try {
+		await emit("credit-sale-submit");
+	} finally {
+		creditSaleLoading.value = false;
 	}
 }
 

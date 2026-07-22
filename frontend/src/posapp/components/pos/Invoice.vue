@@ -252,6 +252,7 @@
 			:discount_percentage_offer_name="discount_percentage_offer_name"
 			:isNumber="isNumber"
 			:return_discount_meta="return_discount_meta"
+			:is_return="!!invoice_doc?.is_return"
 			@update:additional_discount="(val) => (additional_discount = val)"
 			@update:additional_discount_percentage="(val) => (additional_discount_percentage = val)"
 			@update_discount_umount="update_discount_umount"
@@ -263,6 +264,7 @@
 			@open-returns="open_returns"
 			@print-draft="print_draft_invoice"
 			@show-payment="handleShowPaymentRequest"
+			@credit-sale-submit="submitCreditSale"
 			@open-customer-display="handleOpenCustomerDisplayRequest"
 			@resume-parked-order="resume_parked_order"
 		/>
